@@ -1,6 +1,21 @@
 ##########################################################################################################
+# Libraries
+##########################################################################################################
+
+
+import tkinter # To import library so that i can work with gui.
+import tkinter
+from tkinter import * 
+from tkinter import messagebox
+
+
+##########################################################################################################
 # GLOBAL VARIABLES
 ##########################################################################################################
+
+top = tkinter.Tk()
+
+mine_reward = 100
 
 generic_block =	{
 					"previous_hash" : "XYX",
@@ -12,8 +27,20 @@ block_chain = [generic_block]
 open_transactions = []
 
 owner    = "OM DEV SINGH"
+participants = {"OM DEV SINGH"}
 userauth = "admin"
 passauth = "admin@123"
+
+
+##########################################################################################################
+# TEST FUNCTIONS FOR TKINTER
+##########################################################################################################
+
+
+def donothing():
+   filewin = Toplevel(top)
+   button = Button(filewin, text="Do nothing button")
+   button.pack()
 
 
 ##########################################################################################################
@@ -51,7 +78,8 @@ def print_users_available_options():
 	print("3.) To print Open Transactions")
 	print("4.) To Mine A New Block")
 	print("5.) Run crack")
-	print("6.) Exit")	
+	print("6.) To Print A participants")
+	print("7.) Exit")	
 	pl()
 	sp()
 	sp()
@@ -66,6 +94,10 @@ def choice_input():
 
 def success_transaction():
 	print("Transaction Completed")
+
+
+def Failed_transaction():
+	print("Transaction Failed")
 
 
 def block_chain_print():	
@@ -90,6 +122,7 @@ def block_chain_elements_print():
 		print(block)
 	else:
 		print('!'*40)
+
 
 ##########################################################################################################
 # SECURITY RELATED FUNCTIONS
@@ -137,7 +170,6 @@ def crack_detection_system():
 	return True
 
 
-
 ##########################################################################################################
 # FUNCTIONS
 ##########################################################################################################
@@ -163,6 +195,11 @@ def adding_value_to_open_transactions(this):
 	open_transactions.append(this)
 
 
+def verify_transaction(transaction):
+	sender_balance = get_balance(transaction["sender"])
+	return  sender_balance>= transaction["amount"]
+
+
 def add_transactions(sender, recipient, amount=1.0):
 	""" 
 		:sender:    who will send coins.
@@ -174,26 +211,53 @@ def add_transactions(sender, recipient, amount=1.0):
 						'recipient': recipient,
 						'amount':    amount
 					}
-
-	adding_value_to_open_transactions(this = transaction)
-	
+	if verify_transaction(transaction):
+		adding_value_to_open_transactions(this = transaction)
+		participants.add(sender)
+		participants.add(recipient)
+		return True
+	return False
 
 def mine_block():
-	
 	last_block = block_chain[-1]	# from block chain we took out last element and assigned to last_block.
 	hashed_block = hash_block(last_block)
 	print(hashed_block)
+	min_reward_transaction = {
+								'sender':    "SYSTEM",
+								'recipient': owner,
+								'amount':    mine_reward
+	                         }
+	copied_open_transactions = open_transactions[:]
+	copied_open_transactions.append(min_reward_transaction)
 	block =	{
 				"previous_hash": hashed_block,
 				"index": len(block_chain),
-				"transaction" : open_transactions
+				"transaction" : copied_open_transactions
 	 		}
-	block_chain.append(block)		 
+	block_chain.append(block)
+	return True		 
+
+
+def get_balance(participants):
+	tx_sender = [[tx["amount"] for tx in block["transaction"] if tx["sender"] == participants] for block in block_chain]
+	open_tx_sender = [tx["amount"] for tx in open_transactions if tx["sender"]]
+	tx_sender.append(open_tx_sender)
+	amount_sent = 0 
+	for tx in tx_sender:
+		if len(tx) > 0:
+			amount_sent += tx[0]
+	tx_recipient = [[tx["amount"] for tx in block["transaction"] if tx["recipient"] == participants] for block in block_chain]
+	amount_recieved = 0 
+	for tx in tx_recipient:
+		if len(tx) > 0:
+			amount_recieved += tx[0]
+	return (amount_recieved - amount_sent)
 
 
 ##########################################################################################################
 # MAIN PROGRAM
 ##########################################################################################################
+
 
 user_login_in()
 
@@ -232,8 +296,10 @@ while True:
 		print("Senders Name   : ",tx_sender)
 		print("Recipient Name : ",tx_recipient)
 		print("Amount Entered : ", tx_amount)
-		add_transactions(sender = tx_sender, recipient = tx_recipient, amount = tx_amount)		
-		success_transaction()
+		if add_transactions(sender=tx_sender, recipient=tx_recipient, amount=tx_amount):		
+			success_transaction()
+		else:
+			Failed_transaction()
 		sp()
 		kl()
 		dl()
@@ -255,7 +321,8 @@ while True:
 	elif user_choice_is == "4":
 		kl()
 		sp()
-		mine_block()
+		if mine_block():
+			open_transactions = []
 		sp()
 		kl()
 		dl()
@@ -274,8 +341,19 @@ while True:
 		sp()
 		sp()
 		sp()
-				
+
 	elif user_choice_is == "6":
+		kl()
+		sp()
+		print(participants)
+		sp()
+		kl()
+		dl()
+		sp()
+		sp()
+		sp()
+
+	elif user_choice_is == "7":
 		kl()
 		sp()
 		print("Exit")
@@ -302,8 +380,11 @@ while True:
 		block_chain_elements_print()
 		print('Invalid Block Chain')
 		break
+
+	print(get_balance("OM DEV SINGH"))
+
 else:
-    print('User Left')		
+    	print('User Left')		
 # END OF WHILE LOOP.
 
 print("All Transactions Saved")
@@ -311,6 +392,7 @@ sp()
 sp()
 fl()
 fl()
+
 
 ##########################################################################################################
 # END OF PROGRAM
