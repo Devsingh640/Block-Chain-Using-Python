@@ -2,12 +2,13 @@
 # Libraries
 ##########################################################################################################
 
-
-import tkinter # To import library so that i can work with gui.
-import tkinter
+from collections import OrderedDict
+import functools
+import tkinter 
 from tkinter import * 
 from tkinter import messagebox
-
+import hashlib
+import json
 
 ##########################################################################################################
 # GLOBAL VARIABLES
@@ -20,7 +21,8 @@ mine_reward = 100
 generic_block =	{
 					"previous_hash" : "XYX",
 					"index" : 0,
-					"transaction" : []
+					"transaction": [],
+					"proof": 11
 	 			}
 
 block_chain = [generic_block]
@@ -130,14 +132,30 @@ def block_chain_elements_print():
 
 
 def hash_block(block):
-	return '-'.join([str(block[key]) for key in block])    #
+	return hashlib.md5(json.dumps(block, sort_keys= True).encode()).hexdigest()
+
+
+def valid_proof(transactions, last_hash, proof):
+	guess = (str(transactions) + str(last_hash) + str(proof))
+	guess_hash = hashlib.md5((guess).encode()).hexdigest()
+	print(guess_hash)
+	return (guess_hash[0:2] == '00')
+
+
+def proof_of_work():
+	last_block = block_chain[-1]
+	last_hash = hash_block(last_block)
+	proof = 0
+	while not valid_proof(open_transactions, last_hash, proof):
+		proof += 1
+	return proof 
 
 
 def crack_test():
 	block_chain[0] = {
 						"previous_hash" : " ",
 						"index" : 0,
-						"transaction" : [{'sender' : 'JOHN', 'recipient' : 'SNOW', 'amount' : '55555'}]
+						"transaction" : [{'sender' : 'JOHN', 'recipient' : 'SNOW', 'amount' : 55555}]
 	 				}
 
 
@@ -167,7 +185,22 @@ def crack_detection_system():
 			continue
 		if block['previous_hash'] != hash_block(block_chain[index - 1]):
 			return False
+		if not valid_proof(block['transaction'][:-1], block['previous_hash'], block['proof']):
+			print('proof of work in valid')
+			return False
 	return True
+
+
+##########################################################################################################
+# FILE-HANDELING FUNCTIONS
+##########################################################################################################
+	
+
+def write_data():
+	with open('Block_Chain.txt', mode='w') as file_c:
+		file_c.write(str(block_chain))
+		file_c.write('\n')
+		file_c.write(str(open_transactions))
 
 
 ##########################################################################################################
@@ -184,7 +217,7 @@ def user_input_to_open_a_transaction():
 	tx_sender    = owner
 	tx_recipient = input("Enter Recipients Name : ")
 	tx_amount    = float(input("Enter Transaction Amount : "))
-	return (tx_sender, tx_recipient, tx_amount)	   # sending data in tuple.
+	return (tx_sender, tx_recipient, tx_amount)	   
 
 
 def get_last_block_chain_amount():
@@ -206,35 +239,40 @@ def add_transactions(sender, recipient, amount=1.0):
 		:recipient: who will get coins.
 		:amount:    no. of coins send in a transaction default is set to 1.0.
 	"""
-	transaction =   { 
-						'sender':    sender,
-						'recipient': recipient,
-						'amount':    amount
-					}
+	# transaction =   { 
+	# 					'sender': sender,
+	# 					'recipient': recipient,
+	# 					'amount': amount
+	# 				}
+	transaction = OrderedDict([('sender', sender), ('recipient', recipient), ('amount', amount)])
 	if verify_transaction(transaction):
 		adding_value_to_open_transactions(this = transaction)
 		participants.add(sender)
 		participants.add(recipient)
+		write_data()
 		return True
 	return False
 
 def mine_block():
 	last_block = block_chain[-1]	# from block chain we took out last element and assigned to last_block.
 	hashed_block = hash_block(last_block)
-	print(hashed_block)
-	min_reward_transaction = {
-								'sender':    "SYSTEM",
-								'recipient': owner,
-								'amount':    mine_reward
-	                         }
+	proof = proof_of_work()
+	# min_reward_transaction = {
+	# 							'sender': "SYSTEM",
+	# 							'recipient': owner,
+	# 							'amount': mine_reward
+	#                          }
+	min_reward_transaction = OrderedDict([('sender', "SYSTEM"), ('recipient', owner), ('amount', mine_reward)])
 	copied_open_transactions = open_transactions[:]
 	copied_open_transactions.append(min_reward_transaction)
 	block =	{
 				"previous_hash": hashed_block,
 				"index": len(block_chain),
-				"transaction" : copied_open_transactions
+				"transaction": copied_open_transactions,
+				"proof": proof
 	 		}
 	block_chain.append(block)
+	write_data()
 	return True		 
 
 
@@ -242,15 +280,18 @@ def get_balance(participants):
 	tx_sender = [[tx["amount"] for tx in block["transaction"] if tx["sender"] == participants] for block in block_chain]
 	open_tx_sender = [tx["amount"] for tx in open_transactions if tx["sender"]]
 	tx_sender.append(open_tx_sender)
-	amount_sent = 0 
-	for tx in tx_sender:
-		if len(tx) > 0:
-			amount_sent += tx[0]
+	amount_sent = functools.reduce(lambda tx_sum, tx_amt: tx_sum + sum(tx_amt) if len(tx_amt) > 0 else tx_sum + 0, tx_sender, 0)
+	# amount_sent = 0 
+	# for tx in tx_sender:
+	# 	if len(tx) > 0:
+	# 		amount_sent += tx[0]
+			
 	tx_recipient = [[tx["amount"] for tx in block["transaction"] if tx["recipient"] == participants] for block in block_chain]
-	amount_recieved = 0 
-	for tx in tx_recipient:
-		if len(tx) > 0:
-			amount_recieved += tx[0]
+	amount_recieved = functools.reduce(lambda tx_sum, tx_amt: tx_sum + sum(tx_amt) if len(tx_amt) > 0 else tx_sum + 0, tx_recipient, 0)
+	# amount_recieved = 0 
+	# for tx in tx_recipient:
+	# 	if len(tx) > 0:
+	# 		amount_recieved += tx[0]
 	return (amount_recieved - amount_sent)
 
 
@@ -381,7 +422,7 @@ while True:
 		print('Invalid Block Chain')
 		break
 
-	print(get_balance("OM DEV SINGH"))
+	print('Balance Of {} : {:6.2f}'.format('OM DEV SINGH', get_balance("OM DEV SINGH")))
 
 else:
     	print('User Left')		
