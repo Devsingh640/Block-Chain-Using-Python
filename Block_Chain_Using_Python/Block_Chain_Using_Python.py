@@ -2,6 +2,7 @@
 # Libraries
 ##########################################################################################################
 
+
 from collections import OrderedDict
 import functools
 import tkinter 
@@ -9,6 +10,8 @@ from tkinter import *
 from tkinter import messagebox
 import hashlib
 import json
+import pickle
+
 
 ##########################################################################################################
 # GLOBAL VARIABLES
@@ -26,6 +29,7 @@ generic_block =	{
 	 			}
 
 block_chain = [generic_block]
+
 open_transactions = []
 
 owner    = "OM DEV SINGH"
@@ -194,14 +198,62 @@ def crack_detection_system():
 ##########################################################################################################
 # FILE-HANDELING FUNCTIONS
 ##########################################################################################################
-	
+
+
+def read_data():
+	global block_chain
+	global open_transactions
+	try:
+		# with open('Block_Chain.p', mode='rb') as file_c:
+		# 	file_contents = pickle.loads(file_c.read())
+		# 	block_chain = file_contents['chain']
+		# 	open_transactions = file_contents['open_transactions']
+		with open('Block_Chain.txt', mode='r') as file_c:
+			file_contents = file_c.readlines()
+			block_chain = json.loads(file_contents[0][:-1])
+			updated_block_chain = []
+			for block in block_chain:
+				updated_block_is = {
+									"previous_hash": block["previous_hash"],
+									"index": block["index"],
+									"transaction": [OrderedDict([('sender', tx['sender']), ('recipient', tx['recipient']), ('amount', tx['amount'])]) for tx in block['transaction']],
+									"proof": block["proof"]
+								}
+				updated_block_chain.append(updated_block_is)
+			block_chain = updated_block_chain					
+			open_transactions = json.loads(file_contents[1])
+			updated_transactions = []
+			for tx in open_transactions:
+				updated_transactions_is = OrderedDict([('sender', tx['sender']), ('recipient', tx['recipient']), ('amount', tx['amount'])])
+				updated_transactions.append(updated_transactions_is)
+		open_transactions = updated_transactions
+	except(IOError):
+		print("Loading Error.")
+		generic_block =	{
+					"previous_hash" : "XYX",
+					"index" : 0,
+					"transaction": [],
+					"proof": 11
+	 			}
+		block_chain = [generic_block]
+		open_transactions = []
+read_data()
+
 
 def write_data():
-	with open('Block_Chain.txt', mode='w') as file_c:
-		file_c.write(str(block_chain))
-		file_c.write('\n')
-		file_c.write(str(open_transactions))
-
+	try:
+		# with open('Block_Chain.p', mode='wb') as file_c:
+		# 	save_data = {
+		# 					'chain': block_chain,
+		# 					'open_transactions': open_transactions
+		# 				}
+		# 	file_c.write(pickle.dumps(save_data))
+		with open('Block_Chain.txt', mode='w') as file_c:
+			file_c.write(json.dumps(block_chain))
+			file_c.write('\n')
+			file_c.write(json.dumps(open_transactions))
+	except(IOError):
+		print("Could Not Write To File.")
 
 ##########################################################################################################
 # FUNCTIONS
@@ -253,6 +305,7 @@ def add_transactions(sender, recipient, amount=1.0):
 		return True
 	return False
 
+
 def mine_block():
 	last_block = block_chain[-1]	# from block chain we took out last element and assigned to last_block.
 	hashed_block = hash_block(last_block)
@@ -272,7 +325,6 @@ def mine_block():
 				"proof": proof
 	 		}
 	block_chain.append(block)
-	write_data()
 	return True		 
 
 
@@ -296,7 +348,7 @@ def get_balance(participants):
 
 
 ##########################################################################################################
-# MAIN PROGRAM
+# MAIN DRIVER PROGRAM
 ##########################################################################################################
 
 
@@ -364,6 +416,7 @@ while True:
 		sp()
 		if mine_block():
 			open_transactions = []
+			write_data()
 		sp()
 		kl()
 		dl()
